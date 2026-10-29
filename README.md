@@ -1,3 +1,6 @@
+# Notes on idivait fork
+- This is still being developed. Do not try to implement this in production.
+
 # Deprecated
 
 This project is no longer maintained.

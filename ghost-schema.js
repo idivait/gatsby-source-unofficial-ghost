@@ -9,7 +9,7 @@
  * They instead represent the shape of objects returned by the Ghost API for navigation and post count.
  */
 
-const types = `
+export const types = /* GraphQL */`
 type GhostPost implements Node {
     slug: String!
     id: ID!
@@ -34,7 +34,7 @@ type GhostPost implements Node {
     send_email_when_published: Boolean
     tags: [GhostTag] @link(from: "tags.slug" by: "slug")
     authors: [GhostAuthor]! @link(from: "authors.slug" by: "slug")
-    primary_author: GhostAuthor! @link(from: "primary_author.slug" by: "slug")
+    primary_author: GhostAuthor
     primary_tag: GhostTag @link(from: "primary_tag.slug" by: "slug")
     url: String!
     excerpt: String
@@ -120,10 +120,35 @@ type GhostTag implements Node {
     accent_color: String
 }
 
+# Example Author Response v6
+# 
+# {
+#     "id": "6771ae64fb1c2705b8522ddc",
+#     "name": "Aubrey Green",
+#     "slug": "aubrey-green",
+#     "profile_image": "https://www.gravatar.com/avatar/e1b2394b2ead88acd31b85192b11ade5?s=250&r=x&d=mp",
+#     "cover_image": null,
+#     "bio": "Aubrey Green is a freelance editor, poet, and storyteller living just outside Tulsa, Oklahoma. Her work has appeared in The Talon Literary Journal and Brio magazine. She enjoys rewriting terrible movie plots and spent almost a year living in China. Coffee is her love language.",
+#     "website": null,
+#     "location": null,
+#     "facebook": null,
+#     "twitter": null,
+#     "meta_title": null,
+#     "meta_description": null,
+#     "threads": null,
+#     "bluesky": null,
+#     "mastodon": null,
+#     "tiktok": null,
+#     "youtube": null,
+#     "instagram": null,
+#     "linkedin": null,
+#     "url": "https://staging.emerge-magazine.com/author/aubrey-green/"
+# },
+
 type GhostAuthor implements Node {
-    slug: String!
     id: ID!
     name: String!
+    slug: String!
     profile_image: String
     cover_image: String
     bio: String
@@ -133,6 +158,13 @@ type GhostAuthor implements Node {
     twitter: String
     meta_title: String
     meta_description: String
+    bluesky: String,
+    threads: String,
+    mastodon: String,
+    tiktok: String,
+    youtube: String,
+    instagram: String,
+    linkedin: String,
     url: String!
     count: GhostPostCount!
     postCount: Int!
@@ -192,4 +224,4 @@ type GhostTiers implements Node {
 }
 `;
 
-module.exports = types;
+export default types

@@ -8,22 +8,15 @@
  * https://ghost.org/docs/api/v3/
  */
 
-const ContentAPI = require('./content-api');
-const {
-    PostNode,
-    PageNode,
-    TagNode,
-    AuthorNode,
-    SettingsNode,
-    TiersNode
-} = require('./ghost-nodes');
-const _ = require(`lodash`);
-const cheerio = require(`cheerio`);
+import ContentAPI from './content-api.js';
+import { createNodeHelpers } from 'gatsby-node-helpers';
+import _ from 'lodash';
+import * as cheerio from 'cheerio/slim';
 
 /**
  * Import all custom ghost types.
  */
-const ghostTypes = require('./ghost-schema');
+import ghostTypes from './ghost-schema.js';
 
 let fetchTiers = null;
 
@@ -36,11 +29,18 @@ const parseCodeinjection = (html) => {
     let $ = null;
 
     /**
-     * Attempt to load the HTML into cheerio. Do not escape the HTML.
+     * Attempt to load the HTML into cheerio. Do not escape the HTML. Load the HTML with htmlparser2 to allow for not decoding entities.
      */
     try {
-        $ = cheerio.load(html, {decodeEntities: false});
-    } catch (e) {
+        $ = cheerio.load(html, {
+            xml: {
+                xmlMode: false, // Enable htmlparser2's XML mode.
+                decodeEntities: false, // Decode HTML entities.
+                withStartIndices: false, // Add a `startIndex` property to nodes.
+                withEndIndices: false // Add an `endIndex` property to nodes.
+            }
+        });
+    } catch {
         return {};
     }
 
@@ -100,15 +100,36 @@ const transformCodeinjection = (posts) => {
  * Uses the Ghost Content API to fetch all posts, pages, tags, authors and settings
  * Creates nodes for each record, so that they are all available to Gatsby
  */
-exports.sourceNodes = ({actions}, configOptions) => {
-    const {createNode} = actions;
-    let {apiUrl, contentApiKey, version = `v5.0`, postAndPageFetchCustomOptions = {}} = configOptions;
+export const sourceNodes = async ({ actions, reporter, createNodeId, createContentDigest }, configOptions) => {
+    const { createNode } = actions;
+    const { createNodeFactory } = createNodeHelpers({
+        typePrefix: 'Ghost',
+        createNodeId,
+        createContentDigest,
+    });
+
+    let { apiUrl, contentApiKey, version = `v5.0`, postAndPageFetchCustomOptions = {} } = configOptions;
+
+    // Node Types
+    const POST = 'Post';
+    const PAGE = 'Page';
+    const TAG = 'Tag';
+    const AUTHOR = 'Author';
+    const SETTINGS = 'Settings';
+    const TIERS = 'Tiers';
+
+    const PostNode = createNodeFactory(POST);
+    const PageNode = createNodeFactory(PAGE);
+    const TagNode = createNodeFactory(TAG);
+    const AuthorNode = createNodeFactory(AUTHOR);
+    const SettingsNode = createNodeFactory(SETTINGS);
+    const TiersNode = createNodeFactory(TIERS);
 
     if (version.match(/^v\d$/)) {
         version = version.replace(/^(v\d)$/, '$1.0');
     }
 
-    const api = ContentAPI.configure({apiUrl, contentApiKey, version});
+    const api = ContentAPI.configure({ apiUrl, contentApiKey, version });
 
     const ignoreNotFoundElseRethrow = (err) => {
         if (err && err.response && err.response.status !== 404) {
@@ -123,35 +144,44 @@ exports.sourceNodes = ({actions}, configOptions) => {
         ...postAndPageFetchCustomOptions
     };
 
-    const fetchPosts = api.posts
-        .browse(postAndPageFetchOptions)
-        .then((posts) => {
-            posts = transformCodeinjection(posts);
-            posts.forEach(post => createNode(PostNode(post)));
-        }).catch(ignoreNotFoundElseRethrow);
+    // posts
+    try {
+        reporter.info("Sending in posts.")
+        let posts = await ContentAPI.posts(api, postAndPageFetchOptions, reporter)
+        posts = transformCodeinjection(posts);
+        posts.forEach((post, i) => {
+            post.primary_author = {
+                id: post.primary_author.id,
+                slug: post.primary_author.slug
+            }
+            createNode(PostNode(post))
 
-    const fetchPages = api.pages
-        .browse(postAndPageFetchOptions)
-        .then((pages) => {
-            pages.forEach(page => createNode(PageNode(page)));
-        }).catch(ignoreNotFoundElseRethrow);
+        });
+        reporter.info(`Fetched ${posts.length} posts from Ghost.`)
+        reporter.info(PostNode(posts[0]));
+    } catch (e) { ignoreNotFoundElseRethrow(e) }
+
+    // pages
+    try {
+        const pages = await ContentAPI.pages(api, postAndPageFetchOptions,reporter);
+        pages.forEach(page => createNode(PageNode(page)));
+        reporter.info(`Fetched ${pages.length} pages from Ghost.`);
+    } catch (e) { ignoreNotFoundElseRethrow(e) }
+
 
     const tagAndAuthorFetchOptions = {
         limit: 'all',
         include: 'count.posts'
     };
 
-    const fetchTags = api.tags
-        .browse(tagAndAuthorFetchOptions)
-        .then((tags) => {
-            tags.forEach((tag) => {
-                tag.postCount = tag.count.posts;
-                createNode(TagNode(tag));
-            });
-        }).catch(ignoreNotFoundElseRethrow);
+    // tags
+    try {
+        const tags = await ContentAPI.tags(api, tagAndAuthorFetchOptions);
+        tags.forEach(tag => createNode(TagNode(tag)));
+        reporter.info(`Fetched ${tags.length} tags from Ghost.`);
+    } catch (e) { ignoreNotFoundElseRethrow(e) }
 
-    const fetchAuthors = api.authors
-        .browse(tagAndAuthorFetchOptions)
+    const fetchAuthors = api.authors(tagAndAuthorFetchOptions)
         .then((authors) => {
             authors.forEach((author) => {
                 author.postCount = author.count.posts;
@@ -159,7 +189,7 @@ exports.sourceNodes = ({actions}, configOptions) => {
             });
         }).catch(ignoreNotFoundElseRethrow);
 
-    const fetchSettings = api.settings.browse().then((setting) => {
+    const fetchSettings = api.settings.then((setting) => {
         /**
          * Assert the presence of any code injections, from both the use and ghost.
          */
@@ -202,20 +232,13 @@ exports.sourceNodes = ({actions}, configOptions) => {
 
     if (version.match(/^v5\.\d/)) {
         api.tiers
-            .browse({include: 'benefits,monthly_price,yearly_price'})
+            .browse({ include: 'benefits,monthly_price,yearly_price' })
             .then((tiers) => {
                 tiers.forEach(tier => createNode(TiersNode(tier)));
             }).catch(ignoreNotFoundElseRethrow);
     }
 
-    return Promise.all([
-        fetchPosts,
-        fetchPages,
-        fetchTags,
-        fetchAuthors,
-        fetchSettings,
-        fetchTiers
-    ]);
+    return [posts, pages, tags]
 };
 
 /**
@@ -223,7 +246,7 @@ exports.sourceNodes = ({actions}, configOptions) => {
  *
  * This creates a fully custom schema, removing the need for dummy content or fake nodes.
  */
-exports.createSchemaCustomization = ({actions}) => {
-    const {createTypes} = actions;
+export const createSchemaCustomization = ({ actions }) => {
+    const { createTypes } = actions;
     createTypes(ghostTypes);
 };
