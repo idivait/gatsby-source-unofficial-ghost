@@ -42,42 +42,9 @@ export const posts = async (api, options, reporter)=>{
 }
 
 export const pages = async (api, options,reporter)=>{
-	let page;
-
-	let limit = 15;
-
-	let pageResponse = await api.pages
-		.browse(options)
-		.catch(() => {
-			return [];
-		});
-
-	page = pageResponse.meta.pagination.next;
-	if(!page) return pageResponse;
-
-	let pages = pageResponse.meta.pagination.pages;
-
-	while (page < pages) {
-
-		const morePosts = await api.pages
-			.browse({
-				include: "tags,authors",
-				page,
-				limit,
-			})
-			.catch(() => {
-				return [];
-			});
-
-		pageResponse = pageResponse.concat(morePosts)
-
-		page = morePosts.meta.pagination.next;
-	}
-
-	reporter.info(`Pages length: ${pageResponse.length}`)
-
-    return pageResponse
-
+	reporter.info("Sending pages to pagination.")
+	const pages = await paginateAPI(api.pages, {options, reporter})
+    return pages
 }
 
 export default { configure, posts, pages }
