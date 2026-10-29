@@ -1,10 +1,11 @@
 allowBuilds:
-  '@parcel/watcher': set this to true or false
-  core-js: set this to true or false
-  core-js-pure: set this to true or false
-  es5-ext: set this to true or false
-  gatsby: set this to true or false
-  gatsby-cli: set this to true or false
-  lmdb: set this to true or false
-  msgpackr-extract: set this to true or false
-  sharp: set this to true or false
+  '@parcel/watcher': false
+  core-js: false
+  core-js-pure: false
+  es5-ext: false
+  esbuild: set this to true or false
+  gatsby: false
+  gatsby-cli: false
+  lmdb: false
+  msgpackr-extract: false
+  sharp: false

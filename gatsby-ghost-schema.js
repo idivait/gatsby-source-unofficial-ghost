@@ -8,8 +8,7 @@
  * `GhostNavigation` and `GhostPostCount` are custom types which do not become nodes.
  * They instead represent the shape of objects returned by the Ghost API for navigation and post count.
  */
-
-export const types = /* GraphQL */`
+export const types = /* GraphQL */ `
 type GhostPost implements Node {
     slug: String!
     id: ID!
@@ -223,5 +222,4 @@ type GhostTiers implements Node {
     visibility: String!
 }
 `;
-
-export default types
+export default types;
