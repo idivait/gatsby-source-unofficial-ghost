@@ -17,8 +17,7 @@
   },
   "scripts": {
     "dev": "pnpm tsc --watch",
-    "build": "pnpm tsc",
-    "prepare": "cross-env NODE_ENV=production npm run build"
+    "build": "pnpm tsc"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -33,7 +33,7 @@ type GhostPost implements Node {
     send_email_when_published: Boolean
     tags: [GhostTag] @link(from: "tags.slug" by: "slug")
     authors: [GhostAuthor]! @link(from: "authors.slug" by: "slug")
-    primary_author: GhostAuthor
+    primary_author: GhostAuthor! @link(from: "authors.slug" by: "slug")
     primary_tag: GhostTag @link(from: "primary_tag.slug" by: "slug")
     url: String!
     excerpt: String
