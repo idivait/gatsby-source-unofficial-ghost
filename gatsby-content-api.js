@@ -1,9 +1,10 @@
 import GhostContentAPI from '@tryghost/content-api';
-// TODO: Refactor to class. Test.
-export const configure = ({ url, key, version }) => {
+// TODO: Refactor to class.
+export const configure = ({ url, key, version }, reporter) => {
+    reporter.info(`Configuring api: ${url} ${key} ${version}`);
     return new GhostContentAPI({ url, key, version });
 };
-const paginate = async (submodule, { options, reporter }) => {
+const paginate = async ({ submodule, options, reporter }) => {
     if (reporter)
         reporter.info(`Fetching from Ghost API...`);
     let pagination, objects;
@@ -17,7 +18,7 @@ const paginate = async (submodule, { options, reporter }) => {
             return objects;
         // Cycle through all pages
         while (pagination && pagination.next) {
-            const more = await submodule.browse({ ...options, page: pagination.next });
+            const more = await submodule.browse({ ...options, ...{ page: pagination.next } });
             objects = [...objects, ...more];
             pagination = more.meta.pagination;
             if (reporter)
@@ -33,17 +34,35 @@ const paginate = async (submodule, { options, reporter }) => {
         throw e;
     }
 };
-export const posts = async (api, options, reporter) => {
+export const posts = async ({ api, options, reporter }) => {
     if (reporter)
         reporter.info("Sending posts to pagination.");
-    const posts = await paginate(api.posts, { options, reporter });
+    const posts = await paginate({ submodule: api.posts, options, reporter });
     return posts;
 };
-export const pages = async (api, options, reporter) => {
+export const pages = async ({ api, options, reporter }) => {
     if (reporter)
         reporter.info("Sending pages to pagination.");
-    const pages = await paginate(api.pages, { options, reporter });
+    const pages = await paginate({ submodule: api.pages, options, reporter });
     return pages;
 };
-console.log("test");
-export default { configure, posts, pages };
+export const tags = async ({ api, options, reporter }) => {
+    if (reporter)
+        reporter.info("Sending tags to pagination.");
+    const tags = await paginate({ submodule: api.tags, options, reporter });
+    return tags;
+};
+export const authors = async ({ api, options, reporter }) => {
+    if (reporter)
+        reporter.info("Sending authors to pagination.");
+    const authors = await paginate({ submodule: api.authors, options, reporter });
+    return authors;
+};
+export const settings = async ({ api, reporter }) => {
+    if (reporter)
+        reporter.info("Fetching settings.");
+    reporter.info(`${JSON.stringify(api)}`);
+    const settings = await api.settings.browse();
+    return settings;
+};
+export default configure;

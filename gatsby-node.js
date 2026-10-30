@@ -7,15 +7,14 @@
  *
  * https://ghost.org/docs/api/v3/
  */
-import ContentAPI from './gatsby-content-api.js';
+import * as ContentAPI from './gatsby-content-api.js';
 import { createNodeHelpers } from 'gatsby-node-helpers';
 import _ from 'lodash';
 import * as cheerio from 'cheerio/slim';
 /**
  * Import all custom ghost types.
  */
-import ghostTypes from './ghost-schema.js';
-let fetchTiers = null;
+import ghostTypes from './gatsby-ghost-schema.js';
 /**
  * Extract specific tags from html and return them in a new object.
  *
@@ -102,17 +101,17 @@ export const sourceNodes = async ({ actions, reporter, createNodeId, createConte
     const TAG = 'Tag';
     const AUTHOR = 'Author';
     const SETTINGS = 'Settings';
-    const TIERS = 'Tiers';
+
     const PostNode = createNodeFactory(POST);
     const PageNode = createNodeFactory(PAGE);
     const TagNode = createNodeFactory(TAG);
     const AuthorNode = createNodeFactory(AUTHOR);
     const SettingsNode = createNodeFactory(SETTINGS);
-    const TiersNode = createNodeFactory(TIERS);
+
     if (version.match(/^v\d$/)) {
         version = version.replace(/^(v\d)$/, '$1.0');
     }
-    const api = ContentAPI.configure({ url: apiUrl, key: contentApiKey, version });
+    const api = ContentAPI.configure({ url: apiUrl, key: contentApiKey, version }, reporter);
     const ignoreNotFoundElseRethrow = (err) => {
         if (err && err.response && err.response.status !== 404) {
             throw err;
@@ -126,10 +125,9 @@ export const sourceNodes = async ({ actions, reporter, createNodeId, createConte
     };
     // posts
     try {
-        reporter.info("Sending in posts.");
-        let posts = await ContentAPI.posts(api, postAndPageFetchOptions, reporter);
+        let posts = await ContentAPI.posts({api, options: postAndPageFetchOptions, reporter});
         posts = transformCodeinjection(posts);
-        posts.forEach((post, i) => {
+        posts.forEach((post) => {
             post.primary_author = {
                 id: post.primary_author.id,
                 slug: post.primary_author.slug
@@ -144,7 +142,7 @@ export const sourceNodes = async ({ actions, reporter, createNodeId, createConte
     }
     // pages
     try {
-        const pages = await ContentAPI.pages(api, postAndPageFetchOptions, reporter);
+        const pages = await ContentAPI.pages({api, options: postAndPageFetchOptions, reporter});
         pages.forEach(page => createNode(PageNode(page)));
         reporter.info(`Fetched ${pages.length} pages from Ghost.`);
     }
@@ -155,23 +153,29 @@ export const sourceNodes = async ({ actions, reporter, createNodeId, createConte
         limit: 'all',
         include: 'count.posts'
     };
+
     // tags
     try {
-        const tags = await ContentAPI.tags(api, tagAndAuthorFetchOptions);
+        const tags = await ContentAPI.tags({api, options: tagAndAuthorFetchOptions, reporter});
         tags.forEach(tag => createNode(TagNode(tag)));
         reporter.info(`Fetched ${tags.length} tags from Ghost.`);
     }
     catch (e) {
         ignoreNotFoundElseRethrow(e);
     }
-    const fetchAuthors = api.authors(tagAndAuthorFetchOptions)
-        .then((authors) => {
+
+    // authors
+    try {
+        const authors = await ContentAPI.authors({api, options: tagAndAuthorFetchOptions, reporter});
         authors.forEach((author) => {
             author.postCount = author.count.posts;
             createNode(AuthorNode(author));
         });
-    }).catch(ignoreNotFoundElseRethrow);
-    const fetchSettings = api.settings.then((setting) => {
+    } catch (e) { ignoreNotFoundElseRethrow(e) }
+
+    // settings
+    try {
+        const setting = await ContentAPI.settings({api, reporter});
         /**
          * Assert the presence of any code injections, from both the use and ghost.
          */
@@ -186,34 +190,28 @@ export const sourceNodes = async ({ actions, reporter, createNodeId, createConte
          * If there are any code injections, extract style tags from the markup and
          * transform the setting object to include the `codeinjection_styles` key with the value of those style tags.
          */
+
+        let newSetting = {};
         if (allCodeinjections) {
             const parsedCodeinjections = parseCodeinjection(allCodeinjections);
             if (_.isEmpty(setting.codeinjection_styles)) {
-                setting.codeinjection_styles = parsedCodeinjections.styles;
+                newSetting.codeinjection_styles = parsedCodeinjections.styles;
             }
             else {
-                setting.codeinjection_styles += parsedCodeinjections.styles;
+                newSetting.codeinjection_styles += parsedCodeinjections.styles;
             }
         }
         /**
          * Ensure always non-null by setting `codeinjection_styles` to
          * an empty string instead of null.
          */
-        setting.codeinjection_styles = _.isNil(setting.codeinjection_styles)
+        newSetting.codeinjection_styles = _.isNil(setting.codeinjection_styles)
             ? ''
             : setting.codeinjection_styles;
         // The settings object doesn't have an id, prevent Gatsby from getting 'undefined'
-        setting.id = 1;
-        createNode(SettingsNode(setting));
-    }).catch(ignoreNotFoundElseRethrow);
-    if (version.match(/^v5\.\d/)) {
-        api.tiers
-            .browse({ include: 'benefits,monthly_price,yearly_price' })
-            .then((tiers) => {
-            tiers.forEach(tier => createNode(TiersNode(tier)));
-        }).catch(ignoreNotFoundElseRethrow);
-    }
-    return [posts, pages, tags];
+        newSetting.id = 1;
+        createNode(SettingsNode({...setting, ...newSetting}));
+    } catch (e) { ignoreNotFoundElseRethrow(e) }
 };
 /**
  * Creates custom types based on the Ghost V3 API.
