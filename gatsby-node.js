@@ -157,7 +157,8 @@ export const sourceNodes = async ({ actions, reporter, createNodeId, createConte
     // tags
     try {
         const tags = await ContentAPI.tags({api, options: tagAndAuthorFetchOptions, reporter});
-        tags.forEach(tag => createNode(TagNode(tag)));
+        // Append post count
+        tags.forEach(tag => { createNode( TagNode( {...tag, ...{ postCount: tag.count.posts }} ) ) });
         reporter.info(`Fetched ${tags.length} tags from Ghost.`);
     }
     catch (e) {
@@ -167,10 +168,8 @@ export const sourceNodes = async ({ actions, reporter, createNodeId, createConte
     // authors
     try {
         const authors = await ContentAPI.authors({api, options: tagAndAuthorFetchOptions, reporter});
-        authors.forEach((author) => {
-            author.postCount = author.count.posts;
-            createNode(AuthorNode(author));
-        });
+        authors.forEach(author => { createNode(AuthorNode( {...author, ...{postCount: author.count.posts}} )); });
+        reporter.info(`Fetched ${authors.length} authors from Ghost.`);
     } catch (e) { ignoreNotFoundElseRethrow(e) }
 
     // settings
