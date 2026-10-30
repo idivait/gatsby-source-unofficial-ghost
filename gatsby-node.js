@@ -10,7 +10,7 @@
 import * as ContentAPI from './gatsby-content-api.js';
 import { createNodeHelpers } from 'gatsby-node-helpers';
 import _ from 'lodash';
-import * as cheerio from 'cheerio/slim';
+import * as cheerio from 'cheerio';
 /**
  * Import all custom ghost types.
  */
