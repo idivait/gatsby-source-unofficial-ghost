@@ -135,18 +135,17 @@ export const sourceNodes = async ({ actions, reporter, createNodeId, createConte
             createNode(PostNode(post));
         });
         reporter.info(`Fetched ${posts.length} posts from Ghost.`);
-        reporter.info(PostNode(posts[0]));
     }
     catch (e) {
         ignoreNotFoundElseRethrow(e);
     }
     // pages
     try {
+        reporter.info(`pages?`)
         const pages = await ContentAPI.pages({api, options: postAndPageFetchOptions, reporter});
         pages.forEach(page => createNode(PageNode(page)));
         reporter.info(`Fetched ${pages.length} pages from Ghost.`);
-    }
-    catch (e) {
+    } catch (e) {
         ignoreNotFoundElseRethrow(e);
     }
     const tagAndAuthorFetchOptions = {
