@@ -12,6 +12,8 @@ import * as gatsbyNodeHelpers from 'gatsby-node-helpers';
 import _ from 'lodash';
 import * as cheerio from 'cheerio';
 const {createNodeHelpers} = gatsbyNodeHelpers;
+
+console.log(gatsbyNodeHelpers);
 /**
  * Import all custom ghost types.
  */
