@@ -108,12 +108,14 @@ export const sourceNodes = async (gatsbyApi, configOptions) => {
     // posts
     try {
         const testPosts = await api.posts.browse({ limit: 1 });
+        reporter.info(`testPosts? ${JSON.stringify(testPosts)}`);
         if (!testPosts || testPosts.length === 0) {
             reporter.info(`No posts found in Ghost API. Please check your configuration and try again.`);
             return;
         }
         if (testapi) {
             const testEng = await testapi.posts.browse({ limit: 1 });
+            reporter.info(`testEng? ${JSON.stringify(testEng)}`);
             if (!testEng || testEng.length === 0) {
                 reporter.info(`No posts found in Ghost API with the provided GHOST_CONTENT_API_KEY. Please check your configuration and try again.`);
                 return;
