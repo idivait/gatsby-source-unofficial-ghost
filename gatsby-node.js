@@ -7,17 +7,14 @@
  *
  * https://ghost.org/docs/api/v3/
  */
-import * as ContentAPI from './gatsby-content-api.js';
-import * as gatsbyNodeHelpers from 'gatsby-node-helpers';
+import * as ContentAPI from "./gatsby-content-api.js";
 import _ from 'lodash';
 import * as cheerio from 'cheerio';
-const {createNodeHelpers} = gatsbyNodeHelpers;
-
-console.log(gatsbyNodeHelpers);
+import { nodeBuilder } from "./source-nodes.js";
 /**
  * Import all custom ghost types.
  */
-import ghostTypes from './gatsby-ghost-schema.js';
+import ghostTypes from "./schema.js";
 /**
  * Extract specific tags from html and return them in a new object.
  *
@@ -51,20 +48,14 @@ const parseCodeinjection = (html) => {
      */
     $parsedStyles.each((i, style) => {
         if (i === 0) {
-            codeInjObj.styles = $(style).html();
+            codeInjObj.styles = $(style).html() || "";
         }
         else {
-            codeInjObj.styles += $(style).html();
+            codeInjObj.styles += $(style).html() || "";
         }
     });
     return codeInjObj;
 };
-/**
- * Extracts specific tags from the code injection header and footer and
- * transforms posts to include extracted tags as a new key and value in the post object.
- *
- * Only the `codeinjection_styles` key is added at present.
- */
 const transformCodeinjection = (posts) => {
     posts.map((post) => {
         const allCodeinjections = [
@@ -79,63 +70,42 @@ const transformCodeinjection = (posts) => {
             post.codeinjection_styles = headInjection.styles;
         }
         else {
-            post.codeinjection_styles += headInjection.styles;
+            post.codeinjection_styles += headInjection.styles || '';
         }
         return post;
     });
     return posts;
 };
-/**
- * Create Live Ghost Nodes
- * Uses the Ghost Content API to fetch all posts, pages, tags, authors and settings
- * Creates nodes for each record, so that they are all available to Gatsby
- */
-export const sourceNodes = async ({ actions, reporter, createNodeId, createContentDigest }, configOptions) => {
-    const { createNode } = actions;
-    const { createNodeFactory } = createNodeHelpers({
-        typePrefix: 'Ghost',
-        createNodeId,
-        createContentDigest,
-    });
-    let { apiUrl, contentApiKey, version = `v5.0`, postAndPageFetchCustomOptions = {} } = configOptions;
-    // Node Types
-    const POST = 'Post';
-    const PAGE = 'Page';
-    const TAG = 'Tag';
-    const AUTHOR = 'Author';
-    const SETTINGS = 'Settings';
-
-    const PostNode = createNodeFactory(POST);
-    const PageNode = createNodeFactory(PAGE);
-    const TagNode = createNodeFactory(TAG);
-    const AuthorNode = createNodeFactory(AUTHOR);
-    const SettingsNode = createNodeFactory(SETTINGS);
-
+export const sourceNodes = async (gatsbyApi, configOptions) => {
+    const { reporter } = gatsbyApi;
+    reporter.info(`Starting to fetch data from Ghost API...`);
+    const { apiUrl, contentApiKey, postAndPageFetchCustomOptions = {} } = configOptions;
+    let { version = `v5.0` } = configOptions;
     if (version.match(/^v\d$/)) {
         version = version.replace(/^(v\d)$/, '$1.0');
     }
     const api = ContentAPI.configure({ url: apiUrl, key: contentApiKey, version }, reporter);
     const ignoreNotFoundElseRethrow = (err) => {
-        if (err && err.response && err.response.status !== 404) {
-            throw err;
-        }
+        reporter.info(`Error type: ${typeof err}`);
+        reporter.error(JSON.stringify(err));
+        throw new Error(`Error fetching data from Ghost API. Please check your configuration and try again.`);
     };
     const postAndPageFetchOptions = {
         limit: 'all',
-        include: 'tags,authors',
-        formats: 'html,plaintext',
+        include: 'tags,authors'.split(','),
+        formats: 'html,plaintext'.split(','),
         ...postAndPageFetchCustomOptions
     };
     // posts
     try {
-        let posts = await ContentAPI.posts({api, options: postAndPageFetchOptions, reporter});
+        let posts = await ContentAPI.posts({ api, options: postAndPageFetchOptions, reporter });
         posts = transformCodeinjection(posts);
         posts.forEach((post) => {
-            post.primary_author = {
-                id: post.primary_author.id,
-                slug: post.primary_author.slug
-            };
-            createNode(PostNode(post));
+            if (!post.primary_author && post.authors && post.authors.length > 0) {
+                post.primary_author = post.authors[0];
+            }
+            const nodeBuilderInput = { type: "Post", data: post };
+            nodeBuilder({ gatsbyApi, input: nodeBuilderInput });
         });
         reporter.info(`Fetched ${posts.length} posts from Ghost.`);
     }
@@ -144,75 +114,73 @@ export const sourceNodes = async ({ actions, reporter, createNodeId, createConte
     }
     // pages
     try {
-        reporter.info(`pages?`)
-        const pages = await ContentAPI.pages({api, options: postAndPageFetchOptions, reporter});
-        pages.forEach(page => createNode(PageNode(page)));
+        reporter.info(`pages?`);
+        const pages = await ContentAPI.pages({ api, options: postAndPageFetchOptions, reporter });
+        pages.forEach(page => {
+            const nodeBuilderInput = { type: "Page", data: page };
+            nodeBuilder({ gatsbyApi, input: nodeBuilderInput });
+        });
         reporter.info(`Fetched ${pages.length} pages from Ghost.`);
-    } catch (e) {
+    }
+    catch (e) {
         ignoreNotFoundElseRethrow(e);
     }
+    // tags
     const tagAndAuthorFetchOptions = {
         limit: 'all',
         include: 'count.posts'
     };
-
-    // tags
     try {
-        const tags = await ContentAPI.tags({api, options: tagAndAuthorFetchOptions, reporter});
+        const tags = await ContentAPI.tags({ api, options: tagAndAuthorFetchOptions, reporter });
         // Append post count
-        tags.forEach(tag => { createNode( TagNode( {...tag, ...{ postCount: tag.count.posts }} ) ) });
+        tags.forEach(tag => {
+            const nodeBuilderInput = { type: "Tag", data: { ...tag, ...{ postCount: tag?.count?.posts || 0 } } };
+            nodeBuilder({ gatsbyApi, input: nodeBuilderInput });
+        });
         reporter.info(`Fetched ${tags.length} tags from Ghost.`);
     }
     catch (e) {
         ignoreNotFoundElseRethrow(e);
     }
-
     // authors
     try {
-        const authors = await ContentAPI.authors({api, options: tagAndAuthorFetchOptions, reporter});
-        authors.forEach(author => { createNode(AuthorNode( {...author, ...{postCount: author.count.posts}} )); });
+        const authors = await ContentAPI.authors({ api, options: tagAndAuthorFetchOptions, reporter });
+        authors.forEach(author => {
+            const nodeBuilderInput = { type: "Author", data: { ...author, ...{ postCount: author?.count?.posts || 0 } } };
+            nodeBuilder({ gatsbyApi, input: nodeBuilderInput });
+        });
         reporter.info(`Fetched ${authors.length} authors from Ghost.`);
-    } catch (e) { ignoreNotFoundElseRethrow(e) }
-
+    }
+    catch (e) {
+        ignoreNotFoundElseRethrow(e);
+    }
     // settings
     try {
-        const setting = await ContentAPI.settings({api, reporter});
+        const setting = await ContentAPI.settings({ api, reporter });
         /**
          * Assert the presence of any code injections, from both the use and ghost.
          */
-        const codeinjectionHead = setting.codeinjection_head || setting.ghost_head;
-        const codeinjectionFoot = setting.codeinjection_foot || setting.ghost_foot;
+        const codeinjectionHead = setting.codeinjection_head || setting.ghost_head || ``;
+        const codeinjectionFoot = setting.codeinjection_foot || setting.ghost_foot || ``;
         const allCodeinjections = codeinjectionHead
             ? codeinjectionHead.concat(codeinjectionFoot)
             : codeinjectionFoot
                 ? codeinjectionFoot
                 : null;
-        /**
-         * If there are any code injections, extract style tags from the markup and
-         * transform the setting object to include the `codeinjection_styles` key with the value of those style tags.
-         */
-
-        let newSetting = {};
+        const newSetting = {
+            id: 1,
+            codeinjection_styles: ''
+        };
         if (allCodeinjections) {
             const parsedCodeinjections = parseCodeinjection(allCodeinjections);
-            if (_.isEmpty(setting.codeinjection_styles)) {
-                newSetting.codeinjection_styles = parsedCodeinjections.styles;
-            }
-            else {
-                newSetting.codeinjection_styles += parsedCodeinjections.styles;
-            }
+            newSetting.codeinjection_styles += parsedCodeinjections.styles || '';
         }
-        /**
-         * Ensure always non-null by setting `codeinjection_styles` to
-         * an empty string instead of null.
-         */
-        newSetting.codeinjection_styles = _.isNil(setting.codeinjection_styles)
-            ? ''
-            : setting.codeinjection_styles;
-        // The settings object doesn't have an id, prevent Gatsby from getting 'undefined'
-        newSetting.id = 1;
-        createNode(SettingsNode({...setting, ...newSetting}));
-    } catch (e) { ignoreNotFoundElseRethrow(e) }
+        const nodeBuilderInput = { type: "Settings", data: { ...setting, ...newSetting } };
+        nodeBuilder({ gatsbyApi, input: nodeBuilderInput });
+    }
+    catch (e) {
+        ignoreNotFoundElseRethrow(e);
+    }
 };
 /**
  * Creates custom types based on the Ghost V3 API.
