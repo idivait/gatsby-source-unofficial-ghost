@@ -86,9 +86,14 @@ export const sourceNodes = async (gatsbyApi, configOptions) => {
     }
     const api = ContentAPI.configure({ url: apiUrl, key: contentApiKey, version }, reporter);
     const ignoreNotFoundElseRethrow = (err) => {
-        reporter.info(`Error type: ${typeof err}`);
-        reporter.error(JSON.stringify(err));
-        throw new Error(`Error fetching data from Ghost API. Please check your configuration and try again.`);
+        if (typeof err === 'object' && err && "response" in err && err.response) {
+            const response = err.response;
+            if (typeof response === 'object' && response !== null && "status" in response && response.status === 404) {
+                reporter.info(`Error type: ${typeof err}`);
+                reporter.error(JSON.stringify(err));
+                throw new Error(`Error fetching data from Ghost API. Please check your configuration and try again.`);
+            }
+        }
     };
     const postAndPageFetchOptions = {
         limit: 'all',

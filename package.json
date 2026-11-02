@@ -16,7 +16,7 @@
     "node": "18.x || 20.x"
   },
   "scripts": {
-    "dev": "npm exec tsc --watch",
+    "dev": "npm exec -- tsc --watch",
     "build": "npm exec tsc"
   },
   "devDependencies": {
