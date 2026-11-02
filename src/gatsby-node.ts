@@ -149,10 +149,8 @@ export const sourceNodes: contentApiSourceNode = async (gatsbyApi, configOptions
         formats: 'html,plaintext'.split(',') as FormatParam[],
         ...postAndPageFetchCustomOptions
     };
-    // posts
-    try {
 
-        const testPosts = await api.posts.browse({ limit: 1 });
+            const testPosts = await api.posts.browse({ limit: 1 });
         reporter.info(`testPosts? ${JSON.stringify(testPosts)}`);
         if (!testPosts || testPosts.length === 0) {
             reporter.info(`No posts found in Ghost API. Please check your configuration and try again.`);
@@ -167,6 +165,8 @@ export const sourceNodes: contentApiSourceNode = async (gatsbyApi, configOptions
                 return;
             }
         }
+    // posts
+    try {
 
         let posts = await ContentAPI.posts({api, options: postAndPageFetchOptions, reporter});
         posts = transformCodeinjection(posts);
