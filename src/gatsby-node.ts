@@ -122,11 +122,6 @@ export const sourceNodes: contentApiSourceNode = async (gatsbyApi, configOptions
     }
     const api = ContentAPI.configure({ url: apiUrl, key: contentApiKey, version }, reporter);
 
-    let testapi;
-    if (process.env.GHOST_CONTENT_API_KEY) {
-        testapi = ContentAPI.configure({ url: apiUrl, key: process.env.GHOST_CONTENT_API_KEY, version }, reporter);
-    }
-
     type APIError = {
         response?: {
             status?: number
@@ -150,21 +145,6 @@ export const sourceNodes: contentApiSourceNode = async (gatsbyApi, configOptions
         ...postAndPageFetchCustomOptions
     };
 
-            const testPosts = await api.posts.browse({ limit: 1 });
-        reporter.info(`testPosts? ${JSON.stringify(testPosts)}`);
-        if (!testPosts || testPosts.length === 0) {
-            reporter.info(`No posts found in Ghost API. Please check your configuration and try again.`);
-            return;
-        }
-
-        if (testapi) {
-            const testEng = await testapi.posts.browse({ limit: 1 });
-            reporter.info(`testEng? ${JSON.stringify(testEng)}`);
-            if (!testEng || testEng.length === 0) {
-                reporter.info(`No posts found in Ghost API with the provided GHOST_CONTENT_API_KEY. Please check your configuration and try again.`);
-                return;
-            }
-        }
     // posts
     try {
 
