@@ -13,7 +13,7 @@ const paginate = async ({ submodule, options, reporter }) => {
         objects = await submodule.browse(options);
         pagination = objects.meta.pagination;
         if (reporter)
-            reporter.info(JSON.stringify(pagination));
+            reporter.verbose(JSON.stringify(pagination));
         if (!pagination.next)
             return objects;
         // Cycle through all pages
@@ -22,10 +22,10 @@ const paginate = async ({ submodule, options, reporter }) => {
             objects = [...objects, ...more];
             pagination = more.meta.pagination;
             if (reporter)
-                reporter.info(JSON.stringify(pagination));
+                reporter.verbose(JSON.stringify(pagination));
         }
         if (reporter)
-            reporter.info(`Fetched ${objects.length} objects from Ghost API.`);
+            reporter.verbose(`Fetched ${objects.length} objects from Ghost API.`);
         return objects;
     }
     catch (e) {
@@ -36,31 +36,31 @@ const paginate = async ({ submodule, options, reporter }) => {
 };
 export const posts = async ({ api, options, reporter }) => {
     if (reporter)
-        reporter.info("Sending posts to pagination.");
+        reporter.info("Sending posts to pagination...");
     const posts = await paginate({ submodule: api.posts, options, reporter });
     return posts;
 };
 export const pages = async ({ api, options, reporter }) => {
     if (reporter)
-        reporter.info("Sending pages to pagination.");
+        reporter.info("Sending pages to pagination...");
     const pages = await paginate({ submodule: api.pages, options, reporter });
     return pages;
 };
 export const tags = async ({ api, options, reporter }) => {
     if (reporter)
-        reporter.info("Sending tags to pagination.");
+        reporter.info("Sending tags to pagination...");
     const tags = await paginate({ submodule: api.tags, options, reporter });
     return tags;
 };
 export const authors = async ({ api, options, reporter }) => {
     if (reporter)
-        reporter.info("Sending authors to pagination.");
+        reporter.info("Sending authors to pagination...");
     const authors = await paginate({ submodule: api.authors, options, reporter });
     return authors;
 };
 export const settings = async ({ api, reporter }) => {
     if (reporter)
-        reporter.info("Fetching settings.");
+        reporter.info("Fetching settings...");
     reporter.info(`${JSON.stringify(api)}`);
     const settings = await api.settings.browse();
     return settings;
