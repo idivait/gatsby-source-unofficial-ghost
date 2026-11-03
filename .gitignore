@@ -1,5 +1,9 @@
 # Node template
 
+# build output
+*.js
+!eslint.config.js
+
 # Logs
 logs
 *.log
