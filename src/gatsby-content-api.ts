@@ -27,7 +27,7 @@ const paginate = async ({submodule, options, reporter}: PaginateOptions)=>{
 		// Get first page
 		objects = await submodule.browse(options);
 		pagination = objects.meta.pagination;
-		if(reporter) reporter.info(JSON.stringify(pagination));
+		if(reporter) reporter.verbose(JSON.stringify(pagination));
 		if(!pagination.next) return objects;
 
 		// Cycle through all pages
@@ -35,9 +35,9 @@ const paginate = async ({submodule, options, reporter}: PaginateOptions)=>{
 			const more: Awaited<ReturnType<typeof submodule.browse>> = await submodule.browse({...options, ...{page: pagination.next} });
 			objects = [...objects, ...more]
 			pagination = more.meta.pagination;
-			if(reporter) reporter.info(JSON.stringify(pagination));
+			if(reporter) reporter.verbose(JSON.stringify(pagination));
 		}
-		if (reporter) reporter.info(`Fetched ${objects.length} objects from Ghost API.`)
+		if (reporter) reporter.verbose(`Fetched ${objects.length} objects from Ghost API.`)
 		return objects
 
 	} catch (e) {
@@ -48,31 +48,31 @@ const paginate = async ({submodule, options, reporter}: PaginateOptions)=>{
 }
 
 export const posts = async ({api, options, reporter}: SubmoduleParams)=>{
-	if (reporter) reporter.info("Sending posts to pagination.")
+	if (reporter) reporter.info("Sending posts to pagination...")
 	const posts = await paginate({submodule: api.posts, options, reporter}) as Awaited<ReturnType<typeof api.posts.browse>>;
     return posts
 }
 
 export const pages = async ({api, options, reporter}: SubmoduleParams)=>{
-	if (reporter) reporter.info("Sending pages to pagination.")
+	if (reporter) reporter.info("Sending pages to pagination...")
 	const pages = await paginate({submodule: api.pages, options, reporter}) as Awaited<ReturnType<typeof api.pages.browse>>;
     return pages
 }
 
 export const tags = async ({api, options, reporter}: SubmoduleParams)=> {
-	if (reporter) reporter.info ("Sending tags to pagination.")
+	if (reporter) reporter.info ("Sending tags to pagination...")
 	const tags = await paginate({submodule: api.tags, options, reporter}) as Awaited<ReturnType<typeof api.tags.browse>>;
     return tags
 }
 
 export const authors = async ({api, options, reporter}: SubmoduleParams)=> {
-	if (reporter) reporter.info ("Sending authors to pagination.")
+	if (reporter) reporter.info ("Sending authors to pagination...")
 	const authors = await paginate({submodule: api.authors, options, reporter}) as Awaited<ReturnType<typeof api.authors.browse>>;
 	return authors
 }
 
 export const settings = async ({api, reporter}: SubmoduleParams)=> {
-	if (reporter) reporter.info("Fetching settings.");
+	if (reporter) reporter.info("Fetching settings...");
 	reporter.info(`${JSON.stringify(api)}`)
 	const settings = await api.settings.browse()
 	return settings
